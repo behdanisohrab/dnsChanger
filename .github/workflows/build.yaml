@@ -5,75 +5,69 @@ on:
     types: [created]
 
 jobs:
-  build:
+
+  build-deb:
     runs-on: ubuntu-latest
-
     steps:
-      - name: Checkout code
-        uses: actions/checkout@v3
+    - uses: actions/checkout@v3
+    - name: Get release version
+      id: get_version
+      run: echo "RELEASE_VERSION=${{ github.event.release.tag_name }}" >> $GITHUB_ENV
+    - name: Install package building tools (Debian/Ubuntu)
+      run: |
+        sudo apt-get update
+        sudo apt-get install -y dpkg-deb fakeroot dpkg-dev build-essential
+    - name: Build DEB package
+      run: |
+        mkdir -p deb/DEBIAN
+        cp dnsch.sh deb/
+        echo "Package: dnsch" >> deb/DEBIAN/control
+        echo "Version: ${RELEASE_VERSION}" >> deb/DEBIAN/control
+        echo "Architecture: all" >> deb/DEBIAN/control
+        echo "Maintainer: Your Name <your.email@example.com>" >> deb/DEBIAN/control
+        echo "Description: Your package description" >> deb/DEBIAN/control
+        fakeroot dpkg-deb --build deb
+    - name: Upload DEB package
+      uses: softprops/action-gh-release@v1
+      with:
+        files: ./deb.deb
 
-      - name: Get release version
-        id: get_version
-        run: echo "RELEASE_VERSION=${{ github.event.release.tag_name }}" >> $GITHUB_ENV
+  build-rpm:
+    runs-on: fedora-latest
+    steps:
+    - uses: actions/checkout@v3
+    - name: Get release version
+      id: get_version
+      run: echo "RELEASE_VERSION=${{ github.event.release.tag_name }}" >> $GITHUB_ENV
+    - name: Install package building tools (RPM)
+      run: |
+        sudo dnf install -y rpm-build createrepo
+    - name: Build RPM package
+      run: |
+        cp dnsch.sh dnsch
+        cp dnsch.1 /usr/share/man/man1/dnsch.1.gz
+        mkdir -p rpm/BUILD
+        rpmbuild --rebuild -t noarch . -D "_topdir $PWD/rpm/BUILD"
+    - name: Upload RPM package
+      uses: softprops/action-gh-release@v1
+      with:
+        files: ./rpm/RPMS/noarch/*.rpm
 
-      - name: Install package building tools (Debian/Ubuntu)
-        if: runner.os == 'Linux' && matrix.os == 'ubuntu-latest'
-        run: |
-          sudo apt-get update
-          sudo apt-get install -y dpkg-deb fakeroot dpkg-dev build-essential
-
-      - name: Install PKGBUILD dependencies (Arch Linux)
-        if: runner.os == 'Linux' && matrix.os == 'ubuntu-latest'
-        run: |
-          sudo apt-get update
-          sudo apt-get install -y fakeroot make gcc
-
-      - name: Build DEB package
-        run: |
-          mkdir -p deb/DEBIAN
-          cp dnsch.sh deb/
-          echo "Package: dnsch" >> deb/DEBIAN/control
-          echo "Version: ${RELEASE_VERSION}" >> deb/DEBIAN/control
-          echo "Architecture: all" >> deb/DEBIAN/control
-          echo "Maintainer: Your Name <your.email@example.com>" >> deb/DEBIAN/control
-          echo "Description: Your package description" >> deb/DEBIAN/control
-          fakeroot dpkg-deb --build deb
-
-      - name: Upload DEB artifact
-        uses: actions/upload-artifact@v3
-        with:
-          name: deb
-          path: ./deb.deb
-
-      - name: Install package building tools (RPM)
-        if: runner.os == 'Linux' && matrix.os == 'fedora-latest'
-        run: |
-          sudo yum install -y rpm-build createrepo
-
-      - name: Install PKGBUILD dependencies (Arch Linux)
-        if: runner.os == 'Linux' && matrix.os == 'fedora-latest'
-        run: |
-          sudo dnf install -y fakeroot make gcc
-
-      - name: Build RPM package
-        run: |
-          cp dnsch.sh dnsch
-          cp dnsch.1 /usr/share/man/man1/dnsch.1.gz
-          mkdir -p rpm/BUILD
-          rpmbuild --rebuild -t noarch . -D "_topdir $PWD/rpm/BUILD"
-
-      - name: Upload RPM artifact
-        uses: actions/upload-artifact@v3
-        with:
-          name: rpm
-          path: ./rpm/RPMS/noarch/*.rpm
-
-      - name: Build Arch Linux tar.zst package
-        run: |
-          makepkg -cfri
-
-      - name: Upload Arch Linux artifact
-        uses: actions/upload-artifact@v3
-        with:
-          name: arch
-          path: ./dnsch.tar.zst
+  build-arch:
+    runs-on: archlinux-latest
+    steps:
+    - uses: actions/checkout@v3
+    - name: Get release version
+      id: get_version
+      run: echo "RELEASE_VERSION=${{ github.event.release.tag_name }}" >> $GITHUB_ENV
+    - name: Install PKGBUILD dependencies (Arch Linux)
+      run: |
+        sudo pacman -Syu --noconfirm
+        sudo pacman -S --noconfirm fakeroot make gcc
+    - name: Build Arch Linux tar.zst package
+      run: |
+        makepkg -cfri
+    - name: Upload Arch Linux package
+      uses: softprops/action-gh-release@v1
+      with:
+        files: ./dnsch.tar.zst
