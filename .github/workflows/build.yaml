@@ -1,0 +1,80 @@
+name: Build and Release Artifacts
+
+on:
+  release:
+    types: [created]
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v3
+
+      - name: Get release version
+        id: get_version
+        run: echo "RELEASE_VERSION=${{ github.event.release.tag_name }}" >> $GITHUB_ENV
+
+      - name: Install package building tools (Debian/Ubuntu)
+        if: runner.os == 'Linux' && matrix.os == 'ubuntu-latest'
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y dpkg-deb fakeroot dpkg-dev build-essential
+
+      - name: Install package building tools (RPM)
+        if: runner.os == 'Linux' && matrix.os == 'ubuntu-latest'
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y rpm-build createrepo
+
+      - name: Install PKGBUILD dependencies (Arch Linux)
+        if: runner.os == 'Linux' && matrix.os == 'ubuntu-latest'
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y fakeroot make gcc
+
+      - name: Install package building tools (Fedora)
+        if: runner.os == 'Linux' && matrix.os == 'fedora-latest'
+        run: |
+          sudo yum install -y rpm-build createrepo
+
+      - name: Install PKGBUILD dependencies (Arch Linux)
+        if: runner.os == 'Linux' && matrix.os == 'fedora-latest'
+        run: |
+          sudo dnf install -y fakeroot make gcc
+
+      - name: Build DEB package
+        run: |
+          cp dnsch.sh dnsch
+          mkdir deb
+          fakeroot dpkg-deb -b . ./deb/dnsch_${RELEASE_VERSION}.deb
+
+      - name: Upload DEB artifact
+        uses: actions/upload-artifact@v3
+        with:
+          name: deb
+          path: ./deb
+
+      - name: Build RPM package
+        run: |
+          cp dnsch.sh dnsch
+          cp dnsch.1 /usr/share/man/man1/dnsch.1.gz
+          mkdir rpm
+          rpmbuild --rebuild -t noarch . -D "_topdir $PWD/rpm"
+
+      - name: Upload RPM artifact
+        uses: actions/upload-artifact@v3
+        with:
+          name: rpm
+          path: ./rpm
+
+      - name: Build Arch Linux tar.zst package
+        run: |
+          makepkg -cfri
+
+      - name: Upload Arch Linux artifact
+        uses: actions/upload-artifact@v3
+        with:
+          name: arch
+          path: ./dnsch.tar.zst
