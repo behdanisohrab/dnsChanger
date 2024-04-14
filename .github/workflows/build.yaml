@@ -24,20 +24,23 @@ jobs:
     - name: Build DEB package
       run: |
         mkdir -p deb/DEBIAN
-        cp dnsch.sh deb/
+        mkdir -p deb/usr/bin
+        mkdir -p deb/usr/share/man/man1
+        cp dnsch.sh deb/usr/bin/dnsch
+        cp dnsch.1 deb/usr/share/man/man1/dnsch.1
         echo "Package: dnsch" >> deb/DEBIAN/control
         echo "Version: ${RELEASE_VERSION}" >> deb/DEBIAN/control
         echo "Architecture: all" >> deb/DEBIAN/control
         echo "Maintainer: Your Name <your.email@example.com>" >> deb/DEBIAN/control
         echo "Description: Your package description" >> deb/DEBIAN/control
-        dpkg-deb --build deb
+        dpkg-deb --build deb dnsch_${RELEASE_VERSION}.deb
     - name: Upload DEB package
       uses: softprops/action-gh-release@v1
       with:
-        files: ./deb.deb
+        files: ./dnsch_${{ steps.get_version.outputs.RELEASE_VERSION }}.deb
 
   build-rpm:
-    runs-on: ubuntu-latest
+    runs-on: fedora-latest
     steps:
     - uses: actions/checkout@v3
     - name: Get release version
@@ -45,20 +48,20 @@ jobs:
       run: echo "RELEASE_VERSION=${{ github.event.release.tag_name }}" >> $GITHUB_ENV
     - name: Install package building tools (RPM)
       run: |
-        sudo apt-get update
-        sudo apt-get install -y \
+        sudo dnf install -y \
           rpm-build \
           createrepo
     - name: Build RPM package
       run: |
-        cp dnsch.sh dnsch
-        cp dnsch.1 /usr/share/man/man1/dnsch.1.gz
-        mkdir -p rpm/BUILD
+        mkdir -p rpm/BUILD/usr/bin
+        mkdir -p rpm/BUILD/usr/share/man/man1
+        cp dnsch.sh rpm/BUILD/usr/bin/dnsch
+        cp dnsch.1 rpm/BUILD/usr/share/man/man1/dnsch.1
         rpmbuild --rebuild -t noarch . -D "_topdir $PWD/rpm/BUILD"
     - name: Upload RPM package
       uses: softprops/action-gh-release@v1
       with:
-        files: ./rpm/RPMS/noarch/*.rpm
+        files: ./rpm/RPMS/noarch/dnsch-${{ steps.get_version.outputs.RELEASE_VERSION }}-1.noarch.rpm
 
   build-arch:
     runs-on: archlinux-latest
@@ -73,8 +76,12 @@ jobs:
         sudo pacman -S --noconfirm fakeroot make gcc
     - name: Build Arch Linux tar.zst package
       run: |
+        mkdir -p pkg/usr/bin
+        mkdir -p pkg/usr/share/man/man1
+        cp dnsch.sh pkg/usr/bin/dnsch
+        cp dnsch.1 pkg/usr/share/man/man1/dnsch.1
         makepkg -cfri
     - name: Upload Arch Linux package
       uses: softprops/action-gh-release@v1
       with:
-        files: ./dnsch.tar.zst
+        files: ./*.tar.zst
