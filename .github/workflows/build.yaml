@@ -16,7 +16,11 @@ jobs:
     - name: Install package building tools (Debian/Ubuntu)
       run: |
         sudo apt-get update
-        sudo apt-get install -y dpkg-deb fakeroot dpkg-dev build-essential
+        sudo apt-get install -y \
+          build-essential \
+          devscripts \
+          fakeroot \
+          debhelper
     - name: Build DEB package
       run: |
         mkdir -p deb/DEBIAN
@@ -26,14 +30,14 @@ jobs:
         echo "Architecture: all" >> deb/DEBIAN/control
         echo "Maintainer: Your Name <your.email@example.com>" >> deb/DEBIAN/control
         echo "Description: Your package description" >> deb/DEBIAN/control
-        fakeroot dpkg-deb --build deb
+        dpkg-deb --build deb
     - name: Upload DEB package
       uses: softprops/action-gh-release@v1
       with:
         files: ./deb.deb
 
   build-rpm:
-    runs-on: fedora-latest
+    runs-on: ubuntu-latest
     steps:
     - uses: actions/checkout@v3
     - name: Get release version
@@ -41,7 +45,10 @@ jobs:
       run: echo "RELEASE_VERSION=${{ github.event.release.tag_name }}" >> $GITHUB_ENV
     - name: Install package building tools (RPM)
       run: |
-        sudo dnf install -y rpm-build createrepo
+        sudo apt-get update
+        sudo apt-get install -y \
+          rpm-build \
+          createrepo
     - name: Build RPM package
       run: |
         cp dnsch.sh dnsch
